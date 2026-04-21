@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini Photo Editor</title>
+    <title>Pro Mini Photo Editor</title>
     <style>
-        /* Минимал, орчин үеийн Dark Mode загвар */
         :root {
             --bg-color: #121212;
             --panel-bg: #1e1e1e;
             --text-color: #ffffff;
-            --accent-color: #007aff;
+            --accent-color: #0a84ff;
             --border-radius: 8px;
         }
 
@@ -25,138 +24,132 @@
             overflow: hidden;
         }
 
-        /* Зүүн талын удирдлагын самбар */
+        /* Удирдлагын самбар (Скролл хийгддэг байх) */
         .sidebar {
-            width: 320px;
+            width: 340px;
+            min-width: 340px;
             background-color: var(--panel-bg);
             padding: 20px;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+            box-shadow: 2px 0 15px rgba(0,0,0,0.8);
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 18px;
             z-index: 10;
         }
 
-        h2 {
-            margin: 0 0 10px 0;
-            font-size: 1.2rem;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-        }
+        /* Скроллбарын дизайн */
+        .sidebar::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-thumb { background-color: #444; border-radius: 10px; }
 
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        h2 { margin: 0; font-size: 1.2rem; font-weight: 600; text-align: center; }
 
-        label {
-            font-size: 0.9rem;
-            color: #aaaaaa;
-        }
+        .control-group { display: flex; flex-direction: column; gap: 6px; }
+        
+        .label-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: #ccc; }
+        .val-display { color: var(--accent-color); font-weight: bold; }
 
         input[type="range"] {
+            -webkit-appearance: none;
             width: 100%;
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-color);
             cursor: pointer;
         }
 
-        .input-row {
-            display: flex;
-            gap: 10px;
-        }
-
+        .input-row { display: flex; gap: 10px; align-items: center; }
+        
         input[type="number"] {
             width: 100%;
             padding: 8px;
             background: #2a2a2a;
-            border: 1px solid #333;
+            border: 1px solid #444;
             color: white;
             border-radius: 4px;
             font-family: inherit;
         }
+        .unit { font-size: 0.8rem; color: #888; }
 
         button, .file-upload-btn {
             background-color: var(--accent-color);
             color: white;
             border: none;
-            padding: 10px 15px;
+            padding: 12px;
             border-radius: var(--border-radius);
             cursor: pointer;
             font-size: 0.95rem;
-            font-weight: 500;
+            font-weight: 600;
             text-align: center;
-            transition: opacity 0.2s;
+            transition: 0.2s;
+            width: 100%;
+            box-sizing: border-box;
         }
 
-        button:hover, .file-upload-btn:hover {
-            opacity: 0.8;
-        }
+        button:hover, .file-upload-btn:hover { background-color: #0066cc; }
+        button.secondary { background-color: #333; }
+        button.secondary:hover { background-color: #444; }
 
-        button.secondary {
-            background-color: #333;
-        }
+        input[type="file"] { display: none; }
 
-        input[type="file"] {
-            display: none;
-        }
+        hr { border: none; border-top: 1px solid #333; width: 100%; margin: 5px 0; }
 
-        /* Баруун талын зураг харуулах хэсэг */
+        /* Ажлын талбар */
         .workspace {
             flex: 1;
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 20px;
-            background-color: #0a0a0a;
+            background-color: #000;
             overflow: auto;
         }
 
         canvas {
             max-width: 100%;
             max-height: 100%;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            border-radius: 2px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            object-fit: contain;
         }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <h2>Mini Editor</h2>
+        <h2>Pro Mini Editor</h2>
         
         <label class="file-upload-btn">
-            Зураг оруулах
+            📷 Зураг оруулах
             <input type="file" id="upload" accept="image/*">
         </label>
 
-        <div class="control-group">
-            <label>Гэрэлтэлт (Brightness)</label>
-            <input type="range" id="brightness" min="0" max="200" value="100">
-        </div>
+        <hr>
+
+        <div id="sliders-container"></div>
+
+        <hr>
 
         <div class="control-group">
-            <label>Эрс тэс байдал (Contrast)</label>
-            <input type="range" id="contrast" min="0" max="200" value="100">
-        </div>
-
-        <div class="control-group">
-            <label>Өнгөний ханалт (Saturation)</label>
-            <input type="range" id="saturation" min="0" max="200" value="100">
-        </div>
-
-        <hr style="border-color: #333; width: 100%;">
-
-        <div class="control-group">
-            <label>Тайрах хэмжээ (Pixel)</label>
+            <label style="font-size: 0.9rem; font-weight: bold; color: white;">✂️ Тайрах хэмжээ (CM)</label>
+            <div style="font-size: 0.75rem; color: #888; margin-bottom: 5px;">*300 DPI стандартаар хөрвүүлнэ</div>
             <div class="input-row">
-                <input type="number" id="cropWidth" placeholder="Өргөн">
-                <input type="number" id="cropHeight" placeholder="Өндөр">
+                <input type="number" id="cropWidth" placeholder="Өргөн" step="0.1" min="1">
+                <span class="unit">cm</span>
+                <input type="number" id="cropHeight" placeholder="Өндөр" step="0.1" min="1">
+                <span class="unit">cm</span>
             </div>
-            <button id="cropBtn" class="secondary">Тайрах</button>
+            <button id="cropBtn" class="secondary">Хэмжээгээр тайрах</button>
         </div>
 
-        <button id="downloadBtn">Зургийг хадгалах</button>
+        <button id="downloadBtn">💾 Зургийг хадгалах</button>
     </div>
 
     <div class="workspace">
@@ -168,15 +161,61 @@
         const ctx = canvas.getContext('2d');
         let img = new Image();
         
-        // UI элементүүд
+        // 300 DPI-аар 1 см хэдэн пиксел болохыг тооцоолох тогтмол
+        const DPI = 300;
+        const CM_TO_PX = DPI / 2.54;
+
+        // UI Элементүүд
         const upload = document.getElementById('upload');
-        const brightness = document.getElementById('brightness');
-        const contrast = document.getElementById('contrast');
-        const saturation = document.getElementById('saturation');
         const cropWidth = document.getElementById('cropWidth');
         const cropHeight = document.getElementById('cropHeight');
         const cropBtn = document.getElementById('cropBtn');
         const downloadBtn = document.getElementById('downloadBtn');
+
+        // Тохиргоонуудын жагсаалт
+        const filters = [
+            { id: 'exposure', name: 'Exposure (Гэрэлтэлт)' },
+            { id: 'brilliance', name: 'Brilliance (Тодрол)' },
+            { id: 'highlights', name: 'Highlights (Хурц гэрэл)' },
+            { id: 'shadows', name: 'Shadows (Сүүдэр)' },
+            { id: 'blackPoint', name: 'Black Point (Хар цэг)' },
+            { id: 'vibrancy', name: 'Vibrancy (Өнгөний амьд байдал)' },
+            { id: 'warmth', name: 'Warmth (Дулаан/Хүйтэн)' },
+            { id: 'tint', name: 'Tint (Тусгал өнгө)' },
+            { id: 'vignette', name: 'Vignette (Хүрээ сүүдэрлэх)', min: 0, max: 100, def: 0 }
+        ];
+
+        // Slider-уудыг автоматаар үүсгэх
+        const slidersContainer = document.getElementById('sliders-container');
+        const filterValues = {};
+
+        filters.forEach(f => {
+            const min = f.min !== undefined ? f.min : -100;
+            const max = f.max !== undefined ? f.max : 100;
+            const def = f.def !== undefined ? f.def : 0;
+            filterValues[f.id] = def;
+
+            const group = document.createElement('div');
+            group.className = 'control-group';
+            group.innerHTML = `
+                <div class="label-row">
+                    <label>${f.name}</label>
+                    <span class="val-display" id="val-${f.id}">${def}</span>
+                </div>
+                <input type="range" id="${f.id}" min="${min}" max="${max}" value="${def}">
+            `;
+            slidersContainer.appendChild(group);
+
+            const slider = document.getElementById(f.id);
+            const display = document.getElementById(`val-${f.id}`);
+
+            slider.addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                display.innerText = val > 0 && min < 0 ? `+${val}` : val;
+                filterValues[f.id] = val;
+                applyFilters();
+            });
+        });
 
         // Зураг ачаалах
         upload.addEventListener('change', (e) => {
@@ -187,76 +226,138 @@
             reader.onload = (event) => {
                 img.src = event.target.result;
                 img.onload = () => {
-                    // Зургийн эх нягтаршлыг хадгалах
                     canvas.width = img.width;
                     canvas.height = img.height;
-                    cropWidth.value = img.width;
-                    cropHeight.value = img.height;
+                    
+                    // Эх зургийн хэмжээг см рүү хөрвүүлж харуулах (1 аравтын оронтой)
+                    cropWidth.value = (img.width / CM_TO_PX).toFixed(1);
+                    cropHeight.value = (img.height / CM_TO_PX).toFixed(1);
+                    
                     applyFilters();
                 };
             };
             reader.readAsDataURL(file);
         });
 
-        // Гэрэл, сүүдэр, өнгө өөрчлөх функц
+        // Гол зураг боловсруулах функц
         function applyFilters() {
             if (!img.src) return;
-            
-            // Filter утгуудыг авах
-            const br = brightness.value;
-            const ct = contrast.value;
-            const sat = saturation.value;
+            const w = canvas.width;
+            const h = canvas.height;
 
-            // Canvas-ийг цэвэрлээд шинээр зурах (Эх нягтаршлаар нь)
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.filter = `brightness(${br}%) contrast(${ct}%) saturate(${sat}%)`;
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            // 1. Үндсэн утгуудыг CSS filter рүү хөрвүүлэх
+            // Exposure нь brightness-д нөлөөлнө
+            const brightness = 100 + filterValues.exposure + (filterValues.highlights * 0.3);
+            
+            // Contrast болон Black Point нь эрс тэс байдалд нөлөөлнө
+            const contrast = 100 + (filterValues.brilliance * 0.5) + (filterValues.blackPoint * 0.5);
+            
+            // Vibrancy нь өнгөний ханалтад нөлөөлнө
+            const saturate = 100 + filterValues.vibrancy;
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturate}%)`;
+            
+            // Үндсэн зургийг зурах
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(img, 0, 0, w, h);
+            ctx.filter = 'none'; // Filter-ийг устгах (дараагийн давхаргуудад нөлөөлөхгүй байх)
+
+            // 2. Shadows (Сүүдрийг гэрэлтүүлэх эсвэл хараар будах дууриамал)
+            if (filterValues.shadows !== 0) {
+                ctx.globalCompositeOperation = filterValues.shadows > 0 ? 'screen' : 'multiply';
+                ctx.fillStyle = `rgba(128, 128, 128, ${Math.abs(filterValues.shadows) / 400})`;
+                ctx.fillRect(0, 0, w, h);
+            }
+
+            // 3. Warmth (Температур: Улбар шар эсвэл Цэнхэр өнгө нэмэх)
+            if (filterValues.warmth !== 0) {
+                ctx.globalCompositeOperation = 'color';
+                ctx.fillStyle = filterValues.warmth > 0 
+                    ? `rgba(255, 150, 0, ${filterValues.warmth / 400})` 
+                    : `rgba(0, 100, 255, ${Math.abs(filterValues.warmth) / 400})`;
+                ctx.fillRect(0, 0, w, h);
+            }
+
+            // 4. Tint (Тусгал: Ягаан эсвэл Ногоон өнгө нэмэх)
+            if (filterValues.tint !== 0) {
+                ctx.globalCompositeOperation = 'color';
+                ctx.fillStyle = filterValues.tint > 0 
+                    ? `rgba(255, 0, 255, ${filterValues.tint / 400})` 
+                    : `rgba(0, 255, 0, ${Math.abs(filterValues.tint) / 400})`;
+                ctx.fillRect(0, 0, w, h);
+            }
+
+            // 5. Vignette (Захын сүүдэр)
+            if (filterValues.vignette > 0) {
+                ctx.globalCompositeOperation = 'multiply';
+                const radius = Math.max(w, h) * 0.7;
+                const grad = ctx.createRadialGradient(w/2, h/2, radius * 0.4, w/2, h/2, radius);
+                grad.addColorStop(0, 'rgba(0,0,0,0)');
+                grad.addColorStop(1, `rgba(0,0,0,${filterValues.vignette / 100})`);
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, w, h);
+            }
+
+            // Буцаагаад хэвийн төлөвт оруулах
+            ctx.globalCompositeOperation = 'source-over';
         }
 
-        // Slider хөдлөх бүрт зургийг шинэчлэх
-        brightness.addEventListener('input', applyFilters);
-        contrast.addEventListener('input', applyFilters);
-        saturation.addEventListener('input', applyFilters);
-
-        // Тайрах (Crop) үйлдэл
+        // Хэмжээгээр тайрах (CM -> Pixel)
         cropBtn.addEventListener('click', () => {
             if (!img.src) return;
 
-            const w = parseInt(cropWidth.value);
-            const h = parseInt(cropHeight.value);
+            const cmW = parseFloat(cropWidth.value);
+            const cmH = parseFloat(cropHeight.value);
 
-            if (w > 0 && h > 0) {
-                // Одоогийн filter-тэй зурагнаас өгөгдөл авах
-                const imageData = ctx.getImageData(0, 0, w, h);
+            if (cmW > 0 && cmH > 0) {
+                // См-ийг Пиксел рүү хөрвүүлэх
+                const pxW = Math.round(cmW * CM_TO_PX);
+                const pxH = Math.round(cmH * CM_TO_PX);
+
+                // Одоогийн байгаа filter-тэй зургийн төв хэсгээс тасдаж авах
+                const startX = Math.max(0, (canvas.width - pxW) / 2);
+                const startY = Math.max(0, (canvas.height - pxH) / 2);
                 
-                // Canvas-ийн хэмжээг шинэ тайрсан хэмжээгээр солих
-                canvas.width = w;
-                canvas.height = h;
+                // Зургийг авахдаа хэтэрсэн хэмжээтэй байвал canvas-ийн хязгаараар авна
+                const captureW = Math.min(pxW, canvas.width);
+                const captureH = Math.min(pxH, canvas.height);
+
+                const imageData = ctx.getImageData(startX, startY, captureW, captureH);
                 
-                // Шинэ хэмжээтэй Canvas дээр буцааж зурах
-                ctx.putImageData(imageData, 0, 0);
+                canvas.width = pxW;
+                canvas.height = pxH;
                 
-                // Эх зургийг санах ойд шинэчлэх (дахин filter хийхэд зориулж)
+                // Шинэ canvas дээр голлуулж тавих
+                ctx.putImageData(imageData, (pxW - captureW)/2, (pxH - captureH)/2);
+                
+                // Цаашдын filter-т зориулж санах ойд хадгалах
                 const croppedImage = new Image();
                 croppedImage.src = canvas.toDataURL();
                 croppedImage.onload = () => {
                     img = croppedImage;
-                    // Filter гулсагчуудыг анхны байдалд оруулах
-                    brightness.value = 100;
-                    contrast.value = 100;
-                    saturation.value = 100;
-                    ctx.filter = "none";
+                    resetSliders();
                 };
+            } else {
+                alert("Хэмжээг зөв оруулна уу.");
             }
         });
 
-        // Хадгалах үйлдэл
+        function resetSliders() {
+            filters.forEach(f => {
+                const def = f.def !== undefined ? f.def : 0;
+                filterValues[f.id] = def;
+                document.getElementById(f.id).value = def;
+                document.getElementById(`val-${f.id}`).innerText = def;
+            });
+        }
+
+        // Хадгалах
         downloadBtn.addEventListener('click', () => {
             if (!img.src) return;
-            
             const link = document.createElement('a');
-            link.download = 'edited-image.png';
-            link.href = canvas.toDataURL('image/png', 1.0); // Өндөр чанартайгаар татах
+            link.download = 'pro-edited-image.png';
+            link.href = canvas.toDataURL('image/png', 1.0);
             link.click();
         });
     </script>
