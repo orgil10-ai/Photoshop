@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio Pro Editor</title>
+    <title>Studio Pro Editor - Full Version</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -24,7 +24,7 @@
 
         /* Зүүн талын самбар */
         .sidebar {
-            width: 320px; min-width: 320px;
+            width: 340px; min-width: 340px;
             background-color: var(--panel-bg); padding: 20px;
             box-shadow: 2px 0 15px rgba(0,0,0,0.8);
             overflow-y: auto; display: flex; flex-direction: column; gap: 15px; z-index: 10;
@@ -36,15 +36,19 @@
         
         button, .file-upload-btn {
             background-color: var(--accent-color); color: white;
-            border: none; padding: 12px; border-radius: var(--border-radius);
-            cursor: pointer; font-size: 0.95rem; font-weight: 600; text-align: center;
+            border: none; padding: 10px; border-radius: var(--border-radius);
+            cursor: pointer; font-size: 0.9rem; font-weight: 600; text-align: center;
             width: 100%; box-sizing: border-box; transition: 0.2s;
         }
         button:hover, .file-upload-btn:hover { background-color: #0066cc; }
-        button.secondary { background-color: #333; margin-top: 10px; }
+        button.secondary { background-color: #333; }
         button.secondary:hover { background-color: #444; }
+        button.success { background-color: #28cd41; }
+        button.success:hover { background-color: #20a032; }
         input[type="file"] { display: none; }
         hr { border: none; border-top: 1px solid #333; width: 100%; }
+
+        .btn-row { display: flex; gap: 10px; }
 
         /* Удирдлагын гулсагчууд */
         .control-group { display: flex; flex-direction: column; gap: 6px; }
@@ -58,10 +62,16 @@
             background: var(--accent-color); cursor: pointer;
         }
 
-        /* Баруун талын үндсэн хэсэг */
-        .main-area {
-            flex: 1; display: flex; flex-direction: column;
+        /* CM оруулах хэсэг */
+        .input-row { display: flex; gap: 10px; align-items: center; }
+        input[type="number"] {
+            width: 100%; padding: 8px; background: #2a2a2a; border: 1px solid #444;
+            color: white; border-radius: 4px; font-family: inherit; font-size: 0.9rem;
         }
+        .unit { font-size: 0.8rem; color: #888; }
+
+        /* Баруун талын үндсэн хэсэг */
+        .main-area { flex: 1; display: flex; flex-direction: column; }
 
         /* Tab Систем */
         .tabs-container {
@@ -71,7 +81,7 @@
         .tab {
             padding: 10px 20px; background-color: var(--tab-bg); cursor: pointer;
             border-right: 1px solid #111; font-size: 0.9rem; color: #aaa;
-            display: flex; align-items: center; gap: 10px; transition: 0.2s;
+            display: flex; align-items: center; gap: 10px; transition: 0.2s; user-select: none;
         }
         .tab:hover { background-color: #333; }
         .tab.active { background-color: var(--tab-active); color: white; border-bottom: 2px solid var(--accent-color); }
@@ -81,13 +91,11 @@
         /* Ажлын талбар (Canvas Container) */
         .workspace {
             flex: 1; display: flex; justify-content: center; align-items: center;
-            background-color: #0a0a0a; position: relative; overflow: hidden;
+            background-color: #0a0a0a; position: relative; overflow: auto; padding: 20px;
         }
-        .canvas-wrapper { position: relative; }
-        
-        /* Зургийн Canvas ба Crop UI Canvas давхарлах */
-        canvas { display: block; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
-        #uiCanvas { position: absolute; top: 0; left: 0; cursor: crosshair; }
+        .canvas-wrapper { position: relative; box-shadow: 0 4px 20px rgba(0,0,0,0.6); line-height: 0; }
+        canvas { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+        #uiCanvas { position: absolute; top: 0; left: 0; cursor: crosshair; z-index: 5; }
 
     </style>
 </head>
@@ -96,10 +104,13 @@
     <div class="sidebar">
         <h2>Studio Editor</h2>
         
-        <label class="file-upload-btn">
-            📷 Шинэ зураг нээх (Tab)
-            <input type="file" id="upload" accept="image/*" multiple>
-        </label>
+        <div class="btn-row">
+            <label class="file-upload-btn">
+                📷 Шинэ зураг
+                <input type="file" id="upload" accept="image/*" multiple>
+            </label>
+            <button id="undoBtn" class="secondary" title="Ctrl+Z">↩ Буцаах</button>
+        </div>
         <hr>
 
         <div id="sliders-container"></div>
@@ -107,16 +118,26 @@
 
         <div class="control-group">
             <label style="font-size: 0.9rem; font-weight: bold; color: white;">✂️ Тайрах (Crop Tool)</label>
-            <div style="font-size: 0.75rem; color: #888;">*Зураг дээр хулганаар чирж хэмжээг тохируулна уу</div>
-            <button id="activateCropBtn" class="secondary">Тайрах хэсгийг идэвхжүүлэх</button>
-            <button id="applyCropBtn" style="display: none; background-color: #28cd41; margin-top:10px;">✔ Тайралтыг батлах</button>
+            <div style="font-size: 0.75rem; color: #888; margin-bottom: 5px;">*Хулганаар чирж эсвэл CM-ээр оруулна уу</div>
+            
+            <button id="toggleCropBtn" class="secondary">Тайрах хэсгийг идэвхжүүлэх</button>
+            
+            <div id="cropControls" style="display: none; flex-direction: column; gap: 10px; margin-top: 10px;">
+                <div class="input-row">
+                    <input type="number" id="cropWidthCm" placeholder="Өргөн" step="0.1">
+                    <span class="unit">cm</span>
+                    <input type="number" id="cropHeightCm" placeholder="Өндөр" step="0.1">
+                    <span class="unit">cm</span>
+                </div>
+                <button id="applyCropBtn" class="success">✔ Тайралтыг батлах</button>
+            </div>
         </div>
-        <button id="downloadBtn" style="margin-top: auto;">💾 Одоогийн зургийг хадгалах</button>
+
+        <button id="downloadBtn" style="margin-top: auto;">💾 Зургийг хадгалах</button>
     </div>
 
     <div class="main-area">
-        <div class="tabs-container" id="tabs-bar">
-            </div>
+        <div class="tabs-container" id="tabs-bar"></div>
         
         <div class="workspace" id="workspace">
             <div class="canvas-wrapper">
@@ -127,13 +148,17 @@
     </div>
 
     <script>
-        // --- 1. Төслийн Үндсэн Хувьсагчид ---
+        // Тогтмолууд
+        const DPI = 300;
+        const CM_TO_PX = DPI / 2.54;
+
+        // Canvas хувьсагчид
         const imgCanvas = document.getElementById('imgCanvas');
         const imgCtx = imgCanvas.getContext('2d');
         const uiCanvas = document.getElementById('uiCanvas');
         const uiCtx = uiCanvas.getContext('2d');
         
-        // Tab болон Зургийн мэдээлэл хадгалах массив
+        // Баримтын удирдлага болон History (Undo)
         let documents = [];
         let activeDocId = null;
         let docCounter = 0;
@@ -142,19 +167,25 @@
         const upload = document.getElementById('upload');
         const tabsBar = document.getElementById('tabs-bar');
         const slidersContainer = document.getElementById('sliders-container');
-        const activateCropBtn = document.getElementById('activateCropBtn');
+        const undoBtn = document.getElementById('undoBtn');
+        const toggleCropBtn = document.getElementById('toggleCropBtn');
+        const cropControls = document.getElementById('cropControls');
+        const cropWidthCm = document.getElementById('cropWidthCm');
+        const cropHeightCm = document.getElementById('cropHeightCm');
         const applyCropBtn = document.getElementById('applyCropBtn');
         
         // Filter-ийн тохиргоо
         const filterSettings = [
             { id: 'exposure', name: 'Гэрэлтэлт (Exposure)', min: -100, max: 100 },
             { id: 'contrast', name: 'Эрс тэс байдал (Contrast)', min: -100, max: 100 },
+            { id: 'highlights', name: 'Хурц гэрэл (Highlights)', min: -100, max: 100 },
+            { id: 'shadows', name: 'Сүүдэр (Shadows)', min: -100, max: 100 },
             { id: 'saturation', name: 'Өнгөний ханалт (Saturation)', min: -100, max: 100 },
             { id: 'warmth', name: 'Дулаан/Хүйтэн (Warmth)', min: -100, max: 100 },
             { id: 'vignette', name: 'Хүрээ сүүдэрлэх (Vignette)', min: 0, max: 100 }
         ];
 
-        // --- 2. Filter Sliders Үүсгэх ---
+        // --- 1. Filter Sliders Үүсгэх ---
         filterSettings.forEach(f => {
             const group = document.createElement('div');
             group.className = 'control-group';
@@ -168,17 +199,72 @@
             slidersContainer.appendChild(group);
 
             const slider = document.getElementById(f.id);
+            
+            // Чирж байх үед шууд харагдана (Гэхдээ history-д хадгалахгүй)
             slider.addEventListener('input', (e) => {
                 if(activeDocId === null) return;
                 const val = parseInt(e.target.value);
                 document.getElementById(`val-${f.id}`).innerText = val > 0 && f.min < 0 ? `+${val}` : val;
                 
-                // Идэвхтэй байгаа баримтын filter утгыг шинэчлэх
-                const doc = documents.find(d => d.id === activeDocId);
-                doc.filters[f.id] = val;
+                const doc = getActiveDoc();
+                doc.currentFilters[f.id] = val;
                 renderImage();
             });
+
+            // Чирж дуусаад хулганаа тавихад History-д хадгална
+            slider.addEventListener('change', () => {
+                if(activeDocId === null) return;
+                saveState(getActiveDoc());
+            });
         });
+
+        function getActiveDoc() { return documents.find(d => d.id === activeDocId); }
+
+        // --- 2. History (Undo) Логик ---
+        function saveState(doc) {
+            // Одоогийн байгаа filter-үүдийн хуулбарыг авах
+            const filtersCopy = { ...doc.currentFilters };
+            
+            // Хэрэв бид undo хийсэн байгаад шинэ үйлдэл хийвэл, ирээдүйн түүхийг устгах хэрэгтэй
+            if (doc.historyIndex < doc.history.length - 1) {
+                doc.history = doc.history.slice(0, doc.historyIndex + 1);
+            }
+
+            doc.history.push({
+                imgSrc: doc.baseImageSrc, // Үндсэн зураг
+                filters: filtersCopy
+            });
+            doc.historyIndex = doc.history.length - 1;
+        }
+
+        function undo() {
+            const doc = getActiveDoc();
+            if (!doc || doc.historyIndex <= 0) return; // Ухрах зүйлгүй бол
+
+            doc.historyIndex--;
+            const previousState = doc.history[doc.historyIndex];
+            
+            // Хуучин төлөвийг сэргээх
+            doc.baseImageSrc = previousState.imgSrc;
+            doc.currentFilters = { ...previousState.filters };
+            
+            const img = new Image();
+            img.onload = () => {
+                doc.imgObj = img;
+                updateSlidersFromDoc();
+                renderImage();
+            };
+            img.src = doc.baseImageSrc;
+        }
+
+        // Ctrl + Z дарах үед Undo хийх
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+        });
+        undoBtn.addEventListener('click', undo);
 
         // --- 3. Tab болон Зураг оруулах Логик ---
         upload.addEventListener('change', (e) => {
@@ -186,23 +272,29 @@
             Array.from(files).forEach(file => {
                 const reader = new FileReader();
                 reader.onload = (event) => {
+                    const imgSrc = event.target.result;
                     const img = new Image();
                     img.onload = () => {
+                        const initialFilters = { exposure: 0, contrast: 0, highlights: 0, shadows: 0, saturation: 0, warmth: 0, vignette: 0 };
                         const newDoc = {
                             id: docCounter++,
                             name: file.name,
                             imgObj: img,
-                            filters: { exposure: 0, contrast: 0, saturation: 0, warmth: 0, vignette: 0 }
+                            baseImageSrc: imgSrc,
+                            currentFilters: { ...initialFilters },
+                            history: [],
+                            historyIndex: -1
                         };
                         documents.push(newDoc);
+                        saveState(newDoc); // Анхны төлөвийг хадгалах
                         createTab(newDoc);
                         switchTab(newDoc.id);
                     };
-                    img.src = event.target.result;
+                    img.src = imgSrc;
                 };
                 reader.readAsDataURL(file);
             });
-            upload.value = ''; // Дахин ижил зураг оруулах боломжтой болгох
+            upload.value = '';
         });
 
         function createTab(doc) {
@@ -222,7 +314,7 @@
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById(`tab-${id}`).classList.add('active');
             
-            cancelCrop(); // Шинэ tab руу шилжихэд crop-ийг болиулах
+            cancelCrop(); 
             updateSlidersFromDoc();
             renderImage();
         }
@@ -243,38 +335,26 @@
         }
 
         function updateSlidersFromDoc() {
-            const doc = documents.find(d => d.id === activeDocId);
+            const doc = getActiveDoc();
             if (!doc) return;
             filterSettings.forEach(f => {
-                const val = doc.filters[f.id];
+                const val = doc.currentFilters[f.id];
                 document.getElementById(f.id).value = val;
                 document.getElementById(`val-${f.id}`).innerText = val > 0 && f.min < 0 ? `+${val}` : val;
             });
         }
 
-        // --- 4. Зураг болон Filter-ийг Зураг (Render) ---
+        // --- 4. Зургийг Filter-тэйгээр зурах (Render) ---
         function renderImage() {
-            const doc = documents.find(d => d.id === activeDocId);
+            const doc = getActiveDoc();
             if (!doc) return;
 
-            // Зургийг дэлгэцэнд багтааж харуулах (Гэхдээ эх пикселийг алдахгүй)
-            const maxWidth = window.innerWidth - 360;
-            const maxHeight = window.innerHeight - 100;
-            
-            // Эх зургийн хэмжээ
+            // Canvas-ийн бодит пиксел хэмжээг эх зургийн хэмжээтэй ижил байлгах
             imgCanvas.width = doc.imgObj.width;
             imgCanvas.height = doc.imgObj.height;
             
-            // CSS-ээр дэлгэцэнд багтаах
-            let cssWidth = doc.imgObj.width;
-            let cssHeight = doc.imgObj.height;
-            const ratio = Math.min(maxWidth / cssWidth, maxHeight / cssHeight, 1);
-            imgCanvas.style.width = (cssWidth * ratio) + 'px';
-            imgCanvas.style.height = (cssHeight * ratio) + 'px';
-
-            // Filter тооцоолол
-            const f = doc.filters;
-            const br = 100 + f.exposure;
+            const f = doc.currentFilters;
+            const br = 100 + f.exposure + (f.highlights * 0.3);
             const ct = 100 + f.contrast;
             const sat = 100 + f.saturation;
 
@@ -283,12 +363,18 @@
             imgCtx.drawImage(doc.imgObj, 0, 0);
             imgCtx.filter = 'none';
 
-            // Дулаан өнгө оруулах (Warmth)
+            // Shadows
+            if (f.shadows !== 0) {
+                imgCtx.globalCompositeOperation = f.shadows > 0 ? 'screen' : 'multiply';
+                imgCtx.fillStyle = `rgba(128, 128, 128, ${Math.abs(f.shadows) / 400})`;
+                imgCtx.fillRect(0, 0, imgCanvas.width, imgCanvas.height);
+            }
+
+            // Warmth
             if (f.warmth !== 0) {
                 imgCtx.globalCompositeOperation = 'color';
-                imgCtx.fillStyle = f.warmth > 0 ? `rgba(255,150,0,${f.warmth/300})` : `rgba(0,100,255,${Math.abs(f.warmth)/300})`;
+                imgCtx.fillStyle = f.warmth > 0 ? `rgba(255,150,0,${f.warmth/400})` : `rgba(0,100,255,${Math.abs(f.warmth)/400})`;
                 imgCtx.fillRect(0, 0, imgCanvas.width, imgCanvas.height);
-                imgCtx.globalCompositeOperation = 'source-over';
             }
 
             // Vignette
@@ -300,141 +386,183 @@
                 grad.addColorStop(1, `rgba(0,0,0,${f.vignette/100})`);
                 imgCtx.fillStyle = grad;
                 imgCtx.fillRect(0, 0, imgCanvas.width, imgCanvas.height);
-                imgCtx.globalCompositeOperation = 'source-over';
             }
+            imgCtx.globalCompositeOperation = 'source-over';
         }
 
-        // --- 5. Photoshop Style Interactive Crop (Хулганаар чирж тайрах) ---
+        // --- 5. Crop Логик (СМ гараар оруулах болон Хулганаар чирэх зэрэгцэнэ) ---
         let isCropping = false;
         let isDragging = false;
         let cropRect = { x: 0, y: 0, w: 0, h: 0 };
         let dragStartX, dragStartY;
 
-        activateCropBtn.addEventListener('click', () => {
+        toggleCropBtn.addEventListener('click', () => {
             if (activeDocId === null) return;
-            isCropping = true;
-            activateCropBtn.style.display = 'none';
-            applyCropBtn.style.display = 'block';
+            if (isCropping) { cancelCrop(); return; }
             
-            // UI Canvas-ийг Зургийн Canvas-тай яг ижил хэмжээтэй болгох
+            isCropping = true;
+            toggleCropBtn.innerText = "Тайрахыг цуцлах";
+            toggleCropBtn.style.backgroundColor = "#ff3b30";
+            cropControls.style.display = "flex";
+            
+            // UI Canvas-ийг зургийн бодит пикселийн хэмжээгээр тохируулах
             uiCanvas.width = imgCanvas.width;
             uiCanvas.height = imgCanvas.height;
-            uiCanvas.style.width = imgCanvas.style.width;
-            uiCanvas.style.height = imgCanvas.style.height;
             uiCanvas.style.display = 'block';
             
-            // Анхны тайрах хайрцгийг төвд нь 50% хэмжээтэй үүсгэх
+            // Анхны тайрах хайрцгийг үүсгэх
             cropRect = {
-                x: uiCanvas.width * 0.25, y: uiCanvas.height * 0.25,
-                w: uiCanvas.width * 0.5,  h: uiCanvas.height * 0.5
+                x: uiCanvas.width * 0.1, y: uiCanvas.height * 0.1,
+                w: uiCanvas.width * 0.8, h: uiCanvas.height * 0.8
             };
+            syncCropToInputs();
             drawCropUI();
         });
 
         function cancelCrop() {
             isCropping = false;
             uiCanvas.style.display = 'none';
-            activateCropBtn.style.display = 'block';
-            applyCropBtn.style.display = 'none';
+            toggleCropBtn.innerText = "Тайрах хэсгийг идэвхжүүлэх";
+            toggleCropBtn.style.backgroundColor = "#333";
+            cropControls.style.display = "none";
         }
 
         function drawCropUI() {
+            if (!isCropping) return;
             uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
             
-            // Гадна талыг бүдэгрүүлэх (Darken outside)
-            uiCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            // Гаднах хэсгийг бараан болгох
+            uiCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             uiCtx.fillRect(0, 0, uiCanvas.width, uiCanvas.height);
             uiCtx.clearRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
             
-            // 3x3 Тор зурах (Photoshop Grid)
-            uiCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            uiCtx.lineWidth = uiCanvas.width * 0.002; // Дэлгэцийн хэмжээнд тохируулж шугамын зузаан өөрчлөгдөнө
+            // 3x3 Тор
+            uiCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            uiCtx.lineWidth = Math.max(2, uiCanvas.width * 0.003); 
             uiCtx.beginPath();
-            // Босоо шугамууд
             uiCtx.moveTo(cropRect.x + cropRect.w/3, cropRect.y); uiCtx.lineTo(cropRect.x + cropRect.w/3, cropRect.y + cropRect.h);
             uiCtx.moveTo(cropRect.x + 2*cropRect.w/3, cropRect.y); uiCtx.lineTo(cropRect.x + 2*cropRect.w/3, cropRect.y + cropRect.h);
-            // Хэвтээ шугамууд
             uiCtx.moveTo(cropRect.x, cropRect.y + cropRect.h/3); uiCtx.lineTo(cropRect.x + cropRect.w, cropRect.y + cropRect.h/3);
             uiCtx.moveTo(cropRect.x, cropRect.y + 2*cropRect.h/3); uiCtx.lineTo(cropRect.x + cropRect.w, cropRect.y + 2*cropRect.h/3);
-            // Гаднах хүрээ
             uiCtx.rect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
             uiCtx.stroke();
         }
 
-        // Хулганы Үйлдлүүд (Чирж зурах)
+        // Хулганы координатыг бодит пиксел рүү хөрвүүлэх функц
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (evt.clientX - rect.left) * scaleX,
+                y: (evt.clientY - rect.top) * scaleY
+            };
+        }
+
+        // Хулганаар чирэх үйлдэл (Дүрсээ зурах үед СМ автоматаар солигдоно)
         uiCanvas.addEventListener('mousedown', (e) => {
             if (!isCropping) return;
             isDragging = true;
-            // Хулганы координатыг Canvas пиксел рүү хөрвүүлэх
-            const rect = uiCanvas.getBoundingClientRect();
-            const scaleX = uiCanvas.width / rect.width;
-            const scaleY = uiCanvas.height / rect.height;
-            
-            dragStartX = (e.clientX - rect.left) * scaleX;
-            dragStartY = (e.clientY - rect.top) * scaleY;
-            
-            // Шинээр зурах эхлэл
-            cropRect.x = dragStartX;
-            cropRect.y = dragStartY;
-            cropRect.w = 0;
-            cropRect.h = 0;
+            const pos = getMousePos(uiCanvas, e);
+            dragStartX = pos.x; dragStartY = pos.y;
+            cropRect.x = dragStartX; cropRect.y = dragStartY;
+            cropRect.w = 0; cropRect.h = 0;
         });
 
         uiCanvas.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
-            const rect = uiCanvas.getBoundingClientRect();
-            const scaleX = uiCanvas.width / rect.width;
-            const scaleY = uiCanvas.height / rect.height;
-            
-            const currentX = (e.clientX - rect.left) * scaleX;
-            const currentY = (e.clientY - rect.top) * scaleY;
-            
-            cropRect.w = currentX - dragStartX;
-            cropRect.h = currentY - dragStartY;
+            const pos = getMousePos(uiCanvas, e);
+            cropRect.w = pos.x - dragStartX;
+            cropRect.h = pos.y - dragStartY;
             drawCropUI();
+            syncCropToInputs(); // Хулганаар чирэх үед СМ утга солигдох
         });
 
         uiCanvas.addEventListener('mouseup', () => { isDragging = false; normalizeCropRect(); });
         uiCanvas.addEventListener('mouseout', () => { isDragging = false; });
 
-        // Сөрөг хэмжээтэй зурсан бол засах (баруун дээш чирсэн үед)
         function normalizeCropRect() {
             if(cropRect.w < 0) { cropRect.x += cropRect.w; cropRect.w = Math.abs(cropRect.w); }
             if(cropRect.h < 0) { cropRect.y += cropRect.h; cropRect.h = Math.abs(cropRect.h); }
             drawCropUI();
+            syncCropToInputs();
         }
 
-        // Тайралтыг батлах
-        applyCropBtn.addEventListener('click', () => {
-            if (cropRect.w < 10 || cropRect.h < 10) { cancelCrop(); return; } // Хэт жижиг бол цуцлах
+        // Пикселийг СМ рүү хөрвүүлж input-д харуулах
+        function syncCropToInputs() {
+            if (cropRect.w > 0 && cropRect.h > 0) {
+                cropWidthCm.value = (cropRect.w / CM_TO_PX).toFixed(2);
+                cropHeightCm.value = (cropRect.h / CM_TO_PX).toFixed(2);
+            }
+        }
 
-            // Одоогийн Canvas-аас (Filter орсон зураг) тайрч авах
-            const imageData = imgCtx.getImageData(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+        // Гараар СМ бичих үед UI автоматаар солигдож голлох
+        function syncInputsToCrop() {
+            if(!isCropping) return;
+            const cmW = parseFloat(cropWidthCm.value) || 0;
+            const cmH = parseFloat(cropHeightCm.value) || 0;
             
-            // Шинэ зураг болгож санах ойд хадгалах
+            if(cmW > 0 && cmH > 0) {
+                const pxW = cmW * CM_TO_PX;
+                const pxH = cmH * CM_TO_PX;
+                
+                // Дэлгэцийн голд байрлуулах
+                cropRect.w = pxW;
+                cropRect.h = pxH;
+                cropRect.x = (uiCanvas.width - pxW) / 2;
+                cropRect.y = (uiCanvas.height - pxH) / 2;
+                
+                drawCropUI();
+            }
+        }
+        cropWidthCm.addEventListener('input', syncInputsToCrop);
+        cropHeightCm.addEventListener('input', syncInputsToCrop);
+
+        // Тайралтыг батлах (Энэ үед filter-тэй зураг шинэ эх зураг болж, history-д бичигдэнэ)
+        applyCropBtn.addEventListener('click', () => {
+            if (cropRect.w < 10 || cropRect.h < 10) { alert("Хэт жижиг хэмжээтэй байна."); return; }
+
+            const doc = getActiveDoc();
+            
+            // Filter-тэй байгаа Canvas-аас тайрсан хэсгийг авах
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = cropRect.w; tempCanvas.height = cropRect.h;
-            tempCanvas.getContext('2d').putImageData(imageData, 0, 0);
+            tempCanvas.width = cropRect.w; 
+            tempCanvas.height = cropRect.h;
+            const tempCtx = tempCanvas.getContext('2d');
             
-            const doc = documents.find(d => d.id === activeDocId);
-            const croppedImg = new Image();
-            croppedImg.src = tempCanvas.toDataURL();
-            croppedImg.onload = () => {
-                doc.imgObj = croppedImg; // Эх зургийг шинэ тайрсан зургаар солих
-                // Filter-үүдийг тэг эхлэх (Учир нь хуучин зураг дээр шингэсэн)
-                Object.keys(doc.filters).forEach(k => doc.filters[k] = 0);
+            // X, Y нь сөрөг (зурагнаас хальсан) байвал хар өнгөөр нөхнө
+            tempCtx.fillStyle = "black";
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            
+            tempCtx.drawImage(imgCanvas, 
+                cropRect.x, cropRect.y, cropRect.w, cropRect.h, // Source
+                0, 0, cropRect.w, cropRect.h                    // Destination
+            );
+            
+            const newImgSrc = tempCanvas.toDataURL();
+            const newImg = new Image();
+            newImg.onload = () => {
+                doc.baseImageSrc = newImgSrc;
+                doc.imgObj = newImg;
+                
+                // Crop хийгдсэн тул Filter-үүдийг тэг эхлэх (Учир нь filter зурган дээр шингэсэн)
+                Object.keys(doc.currentFilters).forEach(k => doc.currentFilters[k] = 0);
+                
+                saveState(doc); // Үйлдлийг History-д хадгалах
+                
                 cancelCrop();
                 updateSlidersFromDoc();
                 renderImage();
             };
+            newImg.src = newImgSrc;
         });
 
         // Хадгалах
         document.getElementById('downloadBtn').addEventListener('click', () => {
             if (activeDocId === null) return;
-            const doc = documents.find(d => d.id === activeDocId);
+            const doc = getActiveDoc();
             const link = document.createElement('a');
-            link.download = `edited_${doc.name}`;
+            link.download = `edited_${doc.name}.png`;
             link.href = imgCanvas.toDataURL('image/png', 1.0);
             link.click();
         });
