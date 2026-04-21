@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Photo Editor</title>
+    <style>
+        /* Минимал, орчин үеийн Dark Mode загвар */
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-color: #ffffff;
+            --accent-color: #007aff;
+            --border-radius: 8px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Зүүн талын удирдлагын самбар */
+        .sidebar {
+            width: 320px;
+            background-color: var(--panel-bg);
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: #aaaaaa;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            background: #2a2a2a;
+            border: 1px solid #333;
+            color: white;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        button, .file-upload-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            text-align: center;
+            transition: opacity 0.2s;
+        }
+
+        button:hover, .file-upload-btn:hover {
+            opacity: 0.8;
+        }
+
+        button.secondary {
+            background-color: #333;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Баруун талын зураг харуулах хэсэг */
+        .workspace {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background-color: #0a0a0a;
+            overflow: auto;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>Mini Editor</h2>
+        
+        <label class="file-upload-btn">
+            Зураг оруулах
+            <input type="file" id="upload" accept="image/*">
+        </label>
+
+        <div class="control-group">
+            <label>Гэрэлтэлт (Brightness)</label>
+            <input type="range" id="brightness" min="0" max="200" value="100">
+        </div>
+
+        <div class="control-group">
+            <label>Эрс тэс байдал (Contrast)</label>
+            <input type="range" id="contrast" min="0" max="200" value="100">
+        </div>
+
+        <div class="control-group">
+            <label>Өнгөний ханалт (Saturation)</label>
+            <input type="range" id="saturation" min="0" max="200" value="100">
+        </div>
+
+        <hr style="border-color: #333; width: 100%;">
+
+        <div class="control-group">
+            <label>Тайрах хэмжээ (Pixel)</label>
+            <div class="input-row">
+                <input type="number" id="cropWidth" placeholder="Өргөн">
+                <input type="number" id="cropHeight" placeholder="Өндөр">
+            </div>
+            <button id="cropBtn" class="secondary">Тайрах</button>
+        </div>
+
+        <button id="downloadBtn">Зургийг хадгалах</button>
+    </div>
+
+    <div class="workspace">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let img = new Image();
+        
+        // UI элементүүд
+        const upload = document.getElementById('upload');
+        const brightness = document.getElementById('brightness');
+        const contrast = document.getElementById('contrast');
+        const saturation = document.getElementById('saturation');
+        const cropWidth = document.getElementById('cropWidth');
+        const cropHeight = document.getElementById('cropHeight');
+        const cropBtn = document.getElementById('cropBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Зураг ачаалах
+        upload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                img.src = event.target.result;
+                img.onload = () => {
+                    // Зургийн эх нягтаршлыг хадгалах
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    cropWidth.value = img.width;
+                    cropHeight.value = img.height;
+                    applyFilters();
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Гэрэл, сүүдэр, өнгө өөрчлөх функц
+        function applyFilters() {
+            if (!img.src) return;
+            
+            // Filter утгуудыг авах
+            const br = brightness.value;
+            const ct = contrast.value;
+            const sat = saturation.value;
+
+            // Canvas-ийг цэвэрлээд шинээр зурах (Эх нягтаршлаар нь)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.filter = `brightness(${br}%) contrast(${ct}%) saturate(${sat}%)`;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        }
+
+        // Slider хөдлөх бүрт зургийг шинэчлэх
+        brightness.addEventListener('input', applyFilters);
+        contrast.addEventListener('input', applyFilters);
+        saturation.addEventListener('input', applyFilters);
+
+        // Тайрах (Crop) үйлдэл
+        cropBtn.addEventListener('click', () => {
+            if (!img.src) return;
+
+            const w = parseInt(cropWidth.value);
+            const h = parseInt(cropHeight.value);
+
+            if (w > 0 && h > 0) {
+                // Одоогийн filter-тэй зурагнаас өгөгдөл авах
+                const imageData = ctx.getImageData(0, 0, w, h);
+                
+                // Canvas-ийн хэмжээг шинэ тайрсан хэмжээгээр солих
+                canvas.width = w;
+                canvas.height = h;
+                
+                // Шинэ хэмжээтэй Canvas дээр буцааж зурах
+                ctx.putImageData(imageData, 0, 0);
+                
+                // Эх зургийг санах ойд шинэчлэх (дахин filter хийхэд зориулж)
+                const croppedImage = new Image();
+                croppedImage.src = canvas.toDataURL();
+                croppedImage.onload = () => {
+                    img = croppedImage;
+                    // Filter гулсагчуудыг анхны байдалд оруулах
+                    brightness.value = 100;
+                    contrast.value = 100;
+                    saturation.value = 100;
+                    ctx.filter = "none";
+                };
+            }
+        });
+
+        // Хадгалах үйлдэл
+        downloadBtn.addEventListener('click', () => {
+            if (!img.src) return;
+            
+            const link = document.createElement('a');
+            link.download = 'edited-image.png';
+            link.href = canvas.toDataURL('image/png', 1.0); // Өндөр чанартайгаар татах
+            link.click();
+        });
+    </script>
+</body>
+</html>
